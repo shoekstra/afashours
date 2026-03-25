@@ -1,0 +1,134 @@
+openapi: "3.1.0"
+
+info:
+  title: afashours API
+  description: Syncs time entries from external time tracking tools to AFAS.
+  version: "0.1.0"
+
+servers:
+  - url: /api/v1
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      tags: [system]
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      operationId: getMetrics
+      tags: [system]
+      security: []
+      responses:
+        "200":
+          description: Prometheus metrics
+
+  /user/me:
+    get:
+      summary: Get current user profile
+      description: Returns the authenticated user's profile from Okta JWT claims. Read-only.
+      operationId: getMe
+      tags: [user]
+      responses:
+        "200":
+          description: User profile
+        "401":
+          description: Unauthorized
+
+  /user/me/preferences:
+    get:
+      summary: Get user preferences
+      operationId: getUserPreferences
+      tags: [user]
+      responses:
+        "200":
+          description: User preferences
+        "401":
+          description: Unauthorized
+    patch:
+      summary: Update user preferences
+      description: Update project mappings and Toggl API token.
+      operationId: updateUserPreferences
+      tags: [user]
+      responses:
+        "200":
+          description: Updated preferences
+        "401":
+          description: Unauthorized
+
+  /sync:
+    post:
+      summary: Start a sync job
+      operationId: startSync
+      tags: [sync]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                month:
+                  type: string
+                  description: Month to sync in YYYY-MM format. Defaults to current month.
+                  example: "2026-03"
+      responses:
+        "202":
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id:
+                    type: string
+        "401":
+          description: Unauthorized
+
+  /sync/{jobId}:
+    get:
+      summary: Get sync job status
+      operationId: getSyncJob
+      tags: [sync]
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job status and result
+        "401":
+          description: Unauthorized
+        "404":
+          description: Job not found
+
+  /admin/config:
+    get:
+      summary: Get server configuration
+      operationId: getAdminConfig
+      tags: [admin]
+      responses:
+        "200":
+          description: Server config (AFAS token masked)
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden — admin role required
+    patch:
+      summary: Update server configuration
+      operationId: updateAdminConfig
+      tags: [admin]
+      responses:
+        "200":
+          description: Updated config
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden — admin role required

@@ -1,0 +1,81 @@
+version: "3"
+
+tasks:
+  serve:
+    desc: Start the API server locally
+    cmds:
+      - go run ./cmd/afashours serve
+
+  build:
+    desc: Build the afashours binary
+    cmds:
+      - go build -o bin/afashours ./cmd/afashours
+
+  test:
+    desc: Run all tests with race detector
+    cmds:
+      - go test -v -race -coverprofile=coverage.out ./...
+
+  test:coverage:
+    desc: Run tests and open coverage report
+    cmds:
+      - go test -race -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out -o coverage.html
+
+  coverage:
+    desc: Show test coverage percentage
+    cmds:
+      - go test -race -coverprofile=coverage.out ./...
+      - go tool cover -func=coverage.out | tail -1
+
+  fmt:
+    desc: Format Go code
+    cmds:
+      - go fmt ./...
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  clean:
+    desc: Remove build artifacts and coverage files
+    cmds:
+      - rm -f coverage.out coverage.html
+      - rm -rf bin/
+
+  deps:
+    desc: Download and verify dependencies
+    cmds:
+      - go mod download
+      - go mod verify
+
+  tidy:
+    desc: Tidy go.mod and go.sum
+    cmds:
+      - go mod tidy
+
+  web:dev:
+    desc: Start the Vue development server
+    dir: web
+    cmds:
+      - npm run dev
+
+  web:build:
+    desc: Build the Vue frontend for production
+    dir: web
+    cmds:
+      - npm run build
+
+  web:install:
+    desc: Install frontend dependencies
+    dir: web
+    cmds:
+      - npm install
+
+  all:
+    desc: Run fmt, vet, and test
+    cmds:
+      - task: fmt
+      - task: vet
+      - task: test
