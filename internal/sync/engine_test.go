@@ -58,8 +58,14 @@ var defaultProjects = map[string]storage.ProjectMapping{
 }
 
 func entry(projectName, start, stop string) *TimeEntry {
-	s, _ := time.Parse(time.RFC3339, start)
-	e, _ := time.Parse(time.RFC3339, stop)
+	s, err := time.Parse(time.RFC3339, start)
+	if err != nil {
+		panic("entry: invalid start time " + start + ": " + err.Error())
+	}
+	e, err := time.Parse(time.RFC3339, stop)
+	if err != nil {
+		panic("entry: invalid stop time " + stop + ": " + err.Error())
+	}
 	return &TimeEntry{ProjectName: projectName, Description: "work", Start: s, Stop: e}
 }
 
@@ -173,6 +179,29 @@ func TestRun_DeletesExistingBeforeInsert(t *testing.T) {
 	}
 	if len(afasCl.inserted) != 1 {
 		t.Errorf("inserted %d entries, want 1", len(afasCl.inserted))
+	}
+}
+
+func TestRun_DeleteError(t *testing.T) {
+	existing := afas.WorkEntryResponse{RecordNumber: 42, Period: "2026-03-10T00:00:00Z"}
+	src := &stubSource{entries: []*TimeEntry{
+		entry("My Project", "2026-03-10T09:00:00Z", "2026-03-10T10:00:00Z"),
+	}}
+	afasCl := &stubAFAS{
+		dayEntries: map[string][]afas.WorkEntryResponse{
+			"2026-03-10": {existing},
+		},
+		deleteErr: errors.New("delete failed"),
+	}
+	eng := NewEngine(afasCl)
+
+	_, err := eng.Run(context.Background(), src, RunOptions{
+		EmployeeNumber: "12345",
+		Month:          "2026-03",
+		Projects:       defaultProjects,
+	})
+	if err == nil {
+		t.Fatal("expected error from DeleteEntry, got nil")
 	}
 }
 
