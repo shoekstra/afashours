@@ -40,6 +40,11 @@ type RunOptions struct {
 // Entries with no project name or an unmapped project name are skipped.
 // It returns a summary of the outcome.
 func (eng *Engine) Run(ctx context.Context, source TimeSource, opts RunOptions) (*storage.JobSummary, error) {
+	// Validate employee number before any AFAS operations.
+	if opts.EmployeeNumber == "" {
+		return nil, fmt.Errorf("employee number is required and cannot be empty")
+	}
+
 	start, end, err := monthRange(opts.Month)
 	if err != nil {
 		return nil, err
@@ -55,6 +60,10 @@ func (eng *Engine) Run(ctx context.Context, source TimeSource, opts RunOptions) 
 	// Map entries to AFAS WorkEntries, grouping by date.
 	byDate := make(map[string][]*afas.WorkEntry)
 	for _, te := range entries {
+		// Skip nil entries to prevent nil pointer dereference.
+		if te == nil {
+			continue
+		}
 		if te.ProjectName == "" {
 			summary.EntriesSkipped++
 			continue
