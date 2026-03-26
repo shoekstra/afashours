@@ -35,7 +35,10 @@ func (s *Source) GetTimeEntries(ctx context.Context, start, end time.Time) ([]*s
 		return nil, err
 	}
 
-	projects, _, err := s.client.Projects.ListProjects(ctx, workspaceID, nil)
+	projectOpts := &togglapi.ListProjectsOptions{
+		Active: togglapi.String("both"),
+	}
+	projects, _, err := s.client.Projects.ListProjects(ctx, workspaceID, projectOpts)
 	if err != nil {
 		return nil, fmt.Errorf("listing toggl projects: %w", err)
 	}
