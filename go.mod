@@ -4,6 +4,7 @@ go 1.25.1
 
 require (
 	github.com/google/uuid v1.6.0
+	github.com/shoekstra/go-toggl v0.2.0
 	github.com/spf13/cobra v1.10.2
 	github.com/tim-online/go-afas-profit-rest v0.0.0-00010101000000-000000000000
 	modernc.org/sqlite v1.47.0
