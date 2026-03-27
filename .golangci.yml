@@ -1,0 +1,54 @@
+---
+# golangci-lint configuration for afashours.
+# Docs: https://golangci-lint.run/usage/configuration/
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck       # unchecked errors
+    - govet          # go vet
+    - staticcheck    # comprehensive static analysis
+    - revive         # opinionated linter incl. exported doc enforcement
+    - gosec          # security issues
+    - godot          # doc comments must end with a period
+    - noctx          # http requests without context
+    - unparam        # unused function parameters
+    - misspell       # spelling in comments/strings
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck  # test helpers routinely ignore write/encode errors
+          - godot     # test function names don't need periods
+          - gosec     # G104 unhandled errors in test helpers are acceptable
+          - noctx     # http.NewRequest without context is fine in unit tests
+          - revive    # unexported test helpers are fine undocumented
+          - unparam   # test helper parameters may always receive the same value
+      - path: cmd/
+        linters:
+          - revive  # unexported cmd helpers (runServe, resolveConfigPath, etc.) don't need exported docs
+  settings:
+    revive:
+      rules:
+        # Require doc comments on all exported symbols.
+        - name: exported
+          arguments:
+            - disableStutteringCheck  # allow e.g. "type SyncHandler struct" without "SyncHandler SyncHandler..."
+        # Enforce consistent error string style.
+        - name: error-strings
+        # Disallow unused parameters.
+        - name: unused-parameter
+
+    godot:
+      # Doc comments must end with a period.
+      scope: toplevel
+      period: true
+
+    gosec:
+      excludes:
+        # G304: file path from variable — legitimate in config load/save.
+        - G304
+

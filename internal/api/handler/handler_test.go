@@ -276,7 +276,7 @@ func TestPatchPreferences_ProjectsReplacedFully(t *testing.T) {
 
 func TestPostSync_CreatesJob(t *testing.T) {
 	db := &stubStorage{}
-	h := NewSyncHandler(db, context.Background())
+	h := NewSyncHandler(context.Background(), db)
 	r := newRouter(injectClaims("sub123", "42"), func(r gin.IRouter) {
 		r.POST("/sync", h.PostSync)
 	})
@@ -284,6 +284,7 @@ func TestPostSync_CreatesJob(t *testing.T) {
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodPost, "/sync", nil)
 	r.ServeHTTP(w, req)
+	h.Wait()
 
 	if w.Code != http.StatusAccepted {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusAccepted)
@@ -299,7 +300,7 @@ func TestPostSync_CreatesJob(t *testing.T) {
 
 func TestPostSync_InvalidMonth(t *testing.T) {
 	db := &stubStorage{}
-	h := NewSyncHandler(db, context.Background())
+	h := NewSyncHandler(context.Background(), db)
 	r := newRouter(injectClaims("sub123", "42"), func(r gin.IRouter) {
 		r.POST("/sync", h.PostSync)
 	})
@@ -309,6 +310,7 @@ func TestPostSync_InvalidMonth(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, "/sync", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
+	h.Wait()
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
@@ -320,7 +322,7 @@ func TestPostSync_InvalidMonth(t *testing.T) {
 
 func TestPostSync_DefaultsToCurrentMonth(t *testing.T) {
 	db := &stubStorage{}
-	h := NewSyncHandler(db, context.Background())
+	h := NewSyncHandler(context.Background(), db)
 	r := newRouter(injectClaims("sub123", "42"), func(r gin.IRouter) {
 		r.POST("/sync", h.PostSync)
 	})
@@ -330,6 +332,7 @@ func TestPostSync_DefaultsToCurrentMonth(t *testing.T) {
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodPost, "/sync", nil)
 	r.ServeHTTP(w, req)
+	h.Wait()
 
 	if w.Code != http.StatusAccepted {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusAccepted)
@@ -346,7 +349,7 @@ func TestPostSync_DefaultsToCurrentMonth(t *testing.T) {
 
 func TestGetSync_NotFound(t *testing.T) {
 	db := &stubStorage{job: nil}
-	h := NewSyncHandler(db, context.Background())
+	h := NewSyncHandler(context.Background(), db)
 	r := newRouter(injectClaims("sub123", "42"), func(r gin.IRouter) {
 		r.GET("/sync/:jobID", h.GetSync)
 	})
@@ -366,7 +369,7 @@ func TestGetSync_WrongUser(t *testing.T) {
 		Subject: "other-user",
 		Status:  storage.JobStatusComplete,
 	}}
-	h := NewSyncHandler(db, context.Background())
+	h := NewSyncHandler(context.Background(), db)
 	r := newRouter(injectClaims("sub123", "42"), func(r gin.IRouter) {
 		r.GET("/sync/:jobID", h.GetSync)
 	})
@@ -391,7 +394,7 @@ func TestGetSync_Found(t *testing.T) {
 		EndedAt:   &now,
 		Summary:   &storage.JobSummary{EntriesFound: 5, EntriesSynced: 4, EntriesSkipped: 1},
 	}}
-	h := NewSyncHandler(db, context.Background())
+	h := NewSyncHandler(context.Background(), db)
 	r := newRouter(injectClaims("sub123", "42"), func(r gin.IRouter) {
 		r.GET("/sync/:jobID", h.GetSync)
 	})

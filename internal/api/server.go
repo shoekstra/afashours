@@ -26,7 +26,7 @@ type Server struct {
 
 // NewServer wires up the Gin router with all routes and middleware.
 func NewServer(db storage.Storage, validator auth.Validator) *Server {
-	workerCtx, workerCancel := context.WithCancel(context.Background())
+	workerCtx, workerCancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is stored in Server.workerCancel and called in Run's defer
 
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
@@ -37,7 +37,7 @@ func NewServer(db storage.Storage, validator auth.Validator) *Server {
 
 	// Authenticated routes.
 	userH := handler.NewUserHandler(db)
-	syncH := handler.NewSyncHandler(db, workerCtx)
+	syncH := handler.NewSyncHandler(workerCtx, db)
 
 	authed := r.Group("/api/v1")
 	authed.Use(middleware.Auth(validator))

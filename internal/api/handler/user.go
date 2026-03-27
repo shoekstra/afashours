@@ -14,6 +14,7 @@ type UserHandler struct {
 	db storage.Storage
 }
 
+// NewUserHandler creates a UserHandler.
 func NewUserHandler(db storage.Storage) *UserHandler {
 	return &UserHandler{db: db}
 }

@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -42,21 +43,23 @@ func NewDB(dsn, encryptionKey string) (*DB, error) {
 	// "database is locked" errors under concurrent request load.
 	db.SetMaxOpenConns(1)
 
+	ctx := context.Background()
+
 	var journalMode string
-	if err := db.QueryRow(`PRAGMA journal_mode=WAL`).Scan(&journalMode); err != nil {
-		db.Close()
+	if err := db.QueryRowContext(ctx, `PRAGMA journal_mode=WAL`).Scan(&journalMode); err != nil {
+		_ = db.Close()
 		return nil, fmt.Errorf("enabling WAL mode: %w", err)
 	}
 	if journalMode != "wal" && journalMode != "memory" {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("enabling WAL mode: got %q", journalMode)
 	}
-	if _, err := db.Exec(`PRAGMA foreign_keys=ON`); err != nil {
-		db.Close()
+	if _, err := db.ExecContext(ctx, `PRAGMA foreign_keys=ON`); err != nil {
+		_ = db.Close()
 		return nil, fmt.Errorf("enabling foreign keys: %w", err)
 	}
-	if _, err := db.Exec(schemaSQL); err != nil {
-		db.Close()
+	if _, err := db.ExecContext(ctx, schemaSQL); err != nil {
+		_ = db.Close()
 		return nil, fmt.Errorf("applying schema: %w", err)
 	}
 

@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+// rootCmd returns the root cobra command for the afashours binary.
 func rootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "afashours",

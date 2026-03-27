@@ -24,7 +24,7 @@ type SyncHandler struct {
 // NewSyncHandler creates a SyncHandler. ctx is used as the parent context for
 // all background workers; cancelling it signals them to stop DB operations and
 // exit promptly (e.g. during server shutdown).
-func NewSyncHandler(db storage.Storage, ctx context.Context) *SyncHandler {
+func NewSyncHandler(ctx context.Context, db storage.Storage) *SyncHandler {
 	return &SyncHandler{db: db, workerCtx: ctx}
 }
 
