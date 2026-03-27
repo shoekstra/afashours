@@ -60,11 +60,12 @@ type SyncJob struct {
 // JobStatus represents the current state of a sync job.
 type JobStatus string
 
+// Possible values for JobStatus.
 const (
-	JobStatusPending  JobStatus = "pending"
-	JobStatusRunning  JobStatus = "running"
-	JobStatusComplete JobStatus = "complete"
-	JobStatusFailed   JobStatus = "failed"
+	JobStatusPending  JobStatus = "pending"  // waiting to start
+	JobStatusRunning  JobStatus = "running"  // actively syncing entries
+	JobStatusComplete JobStatus = "complete" // finished successfully
+	JobStatusFailed   JobStatus = "failed"   // encountered a fatal error
 )
 
 // JobSummary holds the result of a completed sync job.

@@ -9,6 +9,7 @@ import (
 // HealthHandler handles the public health check endpoint.
 type HealthHandler struct{}
 
+// NewHealthHandler creates a HealthHandler.
 func NewHealthHandler() *HealthHandler {
 	return &HealthHandler{}
 }

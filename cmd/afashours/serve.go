@@ -13,6 +13,7 @@ import (
 	"github.com/shoekstra/afashours/internal/storage/sqlite"
 )
 
+// serveCmd returns the cobra command for starting the API server.
 func serveCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve",
@@ -26,6 +27,8 @@ func serveCmd() *cobra.Command {
 	return cmd
 }
 
+// runServe is the RunE implementation for serveCmd. It validates required
+// environment variables, opens the database, and starts the HTTP server.
 func runServe(cmd *cobra.Command, _ []string) error {
 	if err := viper.BindPFlag("listen_addr", cmd.Flags().Lookup("addr")); err != nil {
 		return fmt.Errorf("binding addr flag: %w", err)
@@ -59,18 +62,15 @@ func runServe(cmd *cobra.Command, _ []string) error {
 	}()
 
 	validator, err := auth.NewOktaValidator(auth.Config{
-		Issuer:   viper.GetString("OKTA_ISSUER"),
-		Audience: viper.GetString("OKTA_AUDIENCE"),
-		ClientID: viper.GetString("OKTA_CLIENT_ID"),
+		Issuer:   strings.TrimSpace(viper.GetString("OKTA_ISSUER")),
+		Audience: strings.TrimSpace(viper.GetString("OKTA_AUDIENCE")),
+		ClientID: strings.TrimSpace(viper.GetString("OKTA_CLIENT_ID")),
 	})
 	if err != nil {
 		return fmt.Errorf("creating auth validator: %w", err)
 	}
 
 	addr := viper.GetString("listen_addr")
-	if addr == "" {
-		addr = ":8080"
-	}
 
 	srv := api.NewServer(db, validator)
 	fmt.Fprintf(os.Stderr, "listening on %s\n", addr)
