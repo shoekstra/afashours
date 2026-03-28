@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 ---
 # CodeRabbit configuration for afashours.
 # Docs: https://docs.coderabbit.ai/configuration
@@ -159,15 +160,9 @@ reviews:
         - http.NewRequest (without context) is acceptable in unit tests; do not
           flag noctx violations in test files.
 
+  tools:
+    golangci-lint:
+      enabled: true
+
 chat:
   auto_reply: true
-
-tools:
-  golangci-lint:
-    enabled: true
-  go-vet:
-    enabled: true
-  staticcheck:
-    enabled: true
-  gosec:
-    enabled: true
