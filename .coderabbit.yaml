@@ -130,6 +130,14 @@ reviews:
           list or switch statement — only Toggl is implemented. New sources will be
           added when the TimeSource interface has a second implementation.
 
+    - path: "cmd/afashours/init.go"
+      instructions: |
+        - filterProjectTypes compares ProjectType.IntegrationGroup (JSON:
+          integration_group) against Project.Group (JSON: project_group). This is
+          the correct linking field between AFAS project types and projects — it
+          matches what the reference implementation (go-afashours FilterByGroup)
+          does. Do not flag this comparison as a type mismatch or incorrect field.
+
     - path: "cmd/afashours/sync.go"
       instructions: |
         - dryRunAFASClient.GetDayEntries intentionally returns an empty slice to
