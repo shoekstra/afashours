@@ -1,0 +1,168 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+---
+# CodeRabbit configuration for afashours.
+# Docs: https://docs.coderabbit.ai/configuration
+
+language: en-US
+
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  collapse_walkthrough: true
+  sequence_diagrams: false
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+
+  # Skip generated, vendored, and binary-adjacent files.
+  path_filters:
+    - "!vendor/**"
+    - "!**/*.pb.go"
+    - "!**/*_generated.go"
+    - "!**/*_gen.go"
+    - "!web/dist/**"
+    - "!web/node_modules/**"
+
+  path_instructions:
+    - path: "**/*.go"
+      instructions: |
+        - Flag non-idiomatic Go: missing error wrapping with %w, naked returns,
+          exported types without doc comments on public APIs, shadowed err variables.
+        - Flag real security issues: SQL injection, command injection, hardcoded
+          secrets, missing input validation at system boundaries.
+        - Context propagation: functions that perform I/O must accept a
+          context.Context as their first parameter; flag violations.
+        - Do not suggest adding logging inside every error branch; the project logs
+          selectively at the handler layer.
+        - Do not suggest extracting small helpers or utility functions unless the
+          same logic appears in 4 or more places — inline repetition at 2–3 sites
+          is intentional and preferred.
+        - Do not flag indirect dependency age (e.g. github.com/chzyer/readline)
+          without citing a specific CVE or known vulnerability. Indirect deps are
+          owned by their direct parent; open an issue against the direct dep instead.
+        - Do not suggest golangci-lint v1 configuration keys (linters-settings,
+          issues.exclude-rules) when the config file contains version: "2". In v2,
+          linter settings live under linters.settings and exclusion rules live under
+          linters.exclusions.rules.
+
+    - path: "internal/storage/**"
+      instructions: |
+        - Raw SQL is expected and correct here; do not suggest ORM or query-builder
+          abstractions.
+        - All public storage functions must go through the Storage interface defined
+          in internal/storage/repository.go; flag any direct struct usage leaking
+          outside this package.
+        - Encryption of sensitive fields (Toggl tokens) via AES-256-GCM is
+          intentional; do not flag it as over-engineering.
+        - sqlite.NewDB uses QueryRowContext/ExecContext with context.Background()
+          during initialisation (before any request context exists); this is correct
+          and expected.
+
+    - path: "internal/api/handler/**"
+      instructions: |
+        - Handlers use Gin; c.ShouldBindJSON, c.JSON, c.Param, and middleware
+          context helpers are idiomatic — do not suggest replacing them.
+        - Claims are always retrieved from context via middleware.ClaimsFromContext;
+          flag any handler that accesses the Authorization header directly.
+        - IDOR protection: GET endpoints that look up user-owned resources must
+          return 404 (not 403) for both missing records and records owned by other
+          users — flag any deviation.
+        - Token values (e.g. Toggl tokens) must never appear in response bodies;
+          use boolean presence flags (e.g. has_toggl_token) instead. Do not flag
+          the absence of a token field as a missing feature.
+        - Do not flag the body-presence check pattern
+          `c.Request.Body != nil && c.Request.Body != http.NoBody` — this is
+          intentional for optional JSON bodies in Gin handlers (Gin 1.12 returns
+          "invalid request" on nil body, not io.EOF).
+        - SyncHandler background goroutines are cancelled via workerCtx (passed at
+          construction) and drained via h.Wait(); do not flag the WithCancel call
+          in NewServer as a leak — the cancel func is stored and called in Run's defer.
+
+    - path: "internal/api/server.go"
+      instructions: |
+        - api.Server.Run() owns signal handling (SIGINT/SIGTERM) and graceful
+          shutdown via signal.Notify/signal.Stop. Do not suggest using an external
+          context (e.g. cmd.Context()) to drive shutdown — the server manages its
+          own lifecycle. This is intentional so the server can be tested and
+          embedded without a Cobra dependency.
+        - The workerCancel function is stored in Server.workerCancel and called in
+          Run's defer; the gosec G118 nolint directive is correct.
+
+    - path: "internal/auth/**"
+      instructions: |
+        - JWT validation uses okta-jwt-verifier-golang; claims are
+          map[string]interface{} — type assertions with ok-checks are required.
+        - The Validator interface exists for testability; do not suggest inlining
+          the concrete type.
+
+    - path: "internal/config/**"
+      instructions: |
+        - Load applies env overrides (AFAS_ACCOUNT, AFAS_TOKEN, TOGGL_TOKEN) at
+          runtime so they take precedence without being persisted.
+        - LoadFile reads only the on-disk config with no env overrides; it is used
+          by the init subcommand to prevent env-only secrets from being written
+          back to disk. This split is intentional — do not suggest merging the two.
+        - Save only writes what it receives; callers are responsible for passing
+          the file-backed config (from LoadFile), not the env-overlaid one (from Load).
+        - Do not suggest a generic SOURCE_TOKEN environment variable or
+          source-type-derived env var names (e.g. CLOCKIFY_TOKEN) until a second
+          source type is implemented. Only "toggl" is supported today.
+        - ValidateForSync intentionally checks both presence and non-empty Code/Type
+          on each project mapping; this is the correct validation level for a sync
+          operation.
+
+    - path: "cmd/**"
+      instructions: |
+        - CLI uses Cobra + Viper with AutomaticEnv(); environment variables are
+          the primary configuration source for the serve subcommand.
+        - The sync and init subcommands read from a local YAML config file
+          (internal/config); they do not use Viper.
+        - RunE functions must propagate cmd.Context() into all I/O operations
+          (config load, AFAS API calls) so Ctrl-C cancels in-flight requests.
+        - BindPFlag calls belong in RunE functions (not in the command constructor)
+          so errors can be returned.
+        - Required env vars for the serve subcommand are validated with
+          strings.TrimSpace before use; flag any new required var that skips this.
+        - Do not suggest adding source types other than "toggl" to any selection
+          list or switch statement — only Toggl is implemented. New sources will be
+          added when the TimeSource interface has a second implementation.
+
+    - path: "cmd/afashours/init.go"
+      instructions: |
+        - filterProjectTypes compares ProjectType.IntegrationGroup (JSON:
+          integration_group) against Project.Group (JSON: project_group). This is
+          the correct linking field between AFAS project types and projects — it
+          matches what the reference implementation (go-afashours FilterByGroup)
+          does. Do not flag this comparison as a type mismatch or incorrect field.
+
+    - path: "cmd/afashours/sync.go"
+      instructions: |
+        - dryRunAFASClient.GetDayEntries intentionally returns an empty slice to
+          avoid making network calls in dry-run mode. This means only insertions
+          are shown; the limitation is documented in the method's doc comment.
+          Do not suggest fetching real entries in dry-run mode.
+        - dryRunAFASClient is a deliberate no-op client; it should never hold a
+          reference to a real AFAS client.
+
+    - path: "**/*_test.go"
+      instructions: |
+        - Table-driven tests are preferred for multiple input/output cases.
+        - The project uses stdlib testing only (no testify); do not suggest adding
+          assertion libraries.
+        - Stub types live in handler_test.go and implement the Storage interface;
+          do not suggest moving them to a separate package.
+        - Tests that start background goroutines (e.g. SyncHandler) must call
+          h.Wait() after ServeHTTP to avoid goroutine leaks between test cases.
+        - http.NewRequest (without context) is acceptable in unit tests; do not
+          flag noctx violations in test files.
+
+  tools:
+    golangci-lint:
+      enabled: true
+
+chat:
+  auto_reply: true
