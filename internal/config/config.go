@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -74,13 +75,13 @@ func loadFile(path string) (*Config, error) {
 // applyEnvOverrides overlays AFAS_ACCOUNT, AFAS_TOKEN, and TOGGL_TOKEN
 // environment variables onto cfg. Called at runtime only; never before Save.
 func applyEnvOverrides(cfg *Config) {
-	if v := os.Getenv("AFAS_ACCOUNT"); v != "" {
+	if v := strings.TrimSpace(os.Getenv("AFAS_ACCOUNT")); v != "" {
 		cfg.AfasAccount = v
 	}
-	if v := os.Getenv("AFAS_TOKEN"); v != "" {
+	if v := strings.TrimSpace(os.Getenv("AFAS_TOKEN")); v != "" {
 		cfg.AfasToken = v
 	}
-	if v := os.Getenv("TOGGL_TOKEN"); v != "" {
+	if v := strings.TrimSpace(os.Getenv("TOGGL_TOKEN")); v != "" {
 		cfg.Source.Token = v
 	}
 }

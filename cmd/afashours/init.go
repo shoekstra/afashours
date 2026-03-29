@@ -147,6 +147,10 @@ func configureProjects(ctx context.Context, cfg *localconfig.Config) error {
 	if err != nil {
 		return fmt.Errorf("fetching AFAS project types: %w", err)
 	}
+	if len(projectTypes) == 0 {
+		fmt.Println("No project types found in AFAS.")
+		return nil
+	}
 	fmt.Printf("Found %d project types\n\n", len(projectTypes))
 
 	if cfg.Projects == nil {
