@@ -106,7 +106,14 @@ func Save(_ context.Context, cfg *Config, path string) error {
 }
 
 // ValidateForSync returns an error if any field required to run a sync is missing.
+// String fields are trimmed in place so whitespace-only values are treated as empty.
 func (c *Config) ValidateForSync() error {
+	c.AfasAccount = strings.TrimSpace(c.AfasAccount)
+	c.AfasToken = strings.TrimSpace(c.AfasToken)
+	c.EmployeeNumber = strings.TrimSpace(c.EmployeeNumber)
+	c.Source.Type = strings.TrimSpace(c.Source.Type)
+	c.Source.Token = strings.TrimSpace(c.Source.Token)
+
 	if c.AfasAccount == "" {
 		return fmt.Errorf("afas_account is required (set in config file or AFAS_ACCOUNT env)")
 	}
@@ -126,6 +133,9 @@ func (c *Config) ValidateForSync() error {
 		return fmt.Errorf("at least one project mapping is required; run 'afashours init' to configure")
 	}
 	for label, p := range c.Projects {
+		p.Code = strings.TrimSpace(p.Code)
+		p.Type = strings.TrimSpace(p.Type)
+		c.Projects[label] = p
 		if p.Code == "" {
 			return fmt.Errorf("project %q is missing a code", label)
 		}

@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -93,9 +94,10 @@ func TestSave_EnforcesFileModeOnExistingFile(t *testing.T) {
 }
 
 func TestLoadFile_NotExist(t *testing.T) {
-	_, err := config.LoadFile(context.Background(), "/nonexistent/path/config.yaml")
-	if err == nil {
-		t.Fatal("expected error for missing file, got nil")
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	_, err := config.LoadFile(context.Background(), path)
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("err = %v, want os.ErrNotExist", err)
 	}
 }
 

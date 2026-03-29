@@ -65,6 +65,7 @@ func runInit(ctx context.Context, cfgFile string) error {
 	if err != nil {
 		return err
 	}
+	afasToken = strings.TrimSpace(afasToken)
 	if afasToken != "" {
 		cfg.AfasToken = afasToken
 	}
@@ -96,6 +97,7 @@ func runInit(ctx context.Context, cfgFile string) error {
 	if err != nil {
 		return err
 	}
+	sourceToken = strings.TrimSpace(sourceToken)
 	if sourceToken != "" {
 		cfg.Source.Token = sourceToken
 	}
