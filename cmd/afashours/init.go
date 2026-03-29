@@ -68,6 +68,14 @@ func runInit(ctx context.Context, cfgFile string) error {
 	if afasToken != "" {
 		cfg.AfasToken = afasToken
 	}
+	// For runtime decisions (connecting to AFAS during init), fall back to the
+	// env var when the user left the prompt blank and no token is in the file.
+	// cfg.AfasToken is intentionally not updated from the env so it is not
+	// persisted by Save.
+	runtimeAfasToken := cfg.AfasToken
+	if runtimeAfasToken == "" {
+		runtimeAfasToken = strings.TrimSpace(os.Getenv("AFAS_TOKEN"))
+	}
 
 	empNum, err := promptString("Employee number", cfg.EmployeeNumber, validateInt)
 	if err != nil {
@@ -95,7 +103,7 @@ func runInit(ctx context.Context, cfgFile string) error {
 	fmt.Println()
 
 	// --- Projects ---
-	if err := configureProjects(ctx, cfg); err != nil {
+	if err := configureProjects(ctx, cfg, runtimeAfasToken); err != nil {
 		return err
 	}
 
@@ -108,7 +116,7 @@ func runInit(ctx context.Context, cfgFile string) error {
 	return nil
 }
 
-func configureProjects(ctx context.Context, cfg *localconfig.Config) error {
+func configureProjects(ctx context.Context, cfg *localconfig.Config, afasToken string) error {
 	if len(cfg.Projects) > 0 {
 		fmt.Printf("Existing project mappings: %d\n", len(cfg.Projects))
 		for label, p := range cfg.Projects {
@@ -125,13 +133,13 @@ func configureProjects(ctx context.Context, cfg *localconfig.Config) error {
 		return nil
 	}
 
-	if cfg.AfasAccount == "" || cfg.AfasToken == "" {
+	if cfg.AfasAccount == "" || afasToken == "" {
 		fmt.Println("AFAS credentials not configured; skipping project setup.")
 		return nil
 	}
 
 	fmt.Println("Connecting to AFAS...")
-	ac := afas.NewClient(cfg.AfasAccount, cfg.AfasToken)
+	ac := afas.NewClient(cfg.AfasAccount, afasToken)
 
 	projects, err := ac.ListProjects(ctx)
 	if err != nil {

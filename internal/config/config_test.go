@@ -73,6 +73,25 @@ func TestSave_FileMode(t *testing.T) {
 	}
 }
 
+func TestSave_EnforcesFileModeOnExistingFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	// Create the file with broader permissions first.
+	if err := os.WriteFile(path, []byte{}, 0644); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	if err := config.Save(context.Background(), validConfig(), path); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Stat: %v", err)
+	}
+	if info.Mode().Perm() != 0600 {
+		t.Errorf("file mode = %o, want 0600 after Save on existing file", info.Mode().Perm())
+	}
+}
+
 func TestLoadFile_NotExist(t *testing.T) {
 	_, err := config.LoadFile(context.Background(), "/nonexistent/path/config.yaml")
 	if err == nil {

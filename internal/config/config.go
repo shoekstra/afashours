@@ -99,6 +99,9 @@ func Save(_ context.Context, cfg *Config, path string) error {
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		return fmt.Errorf("writing config: %w", err)
 	}
+	if err := os.Chmod(path, 0600); err != nil {
+		return fmt.Errorf("setting config file permissions: %w", err)
+	}
 	return nil
 }
 
