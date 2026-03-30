@@ -85,6 +85,32 @@ func newRouter(claims gin.HandlerFunc, routes func(r gin.IRouter)) *gin.Engine {
 	return r
 }
 
+// --- GET /api/v1/config ---
+
+func TestGetConfig(t *testing.T) {
+	h := NewConfigHandler("https://example.okta.com/oauth2/default", "client123")
+	r := gin.New()
+	r.GET("/config", h.GetConfig)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/config", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+	var body map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if body["okta_issuer"] != "https://example.okta.com/oauth2/default" {
+		t.Errorf("okta_issuer = %q, want %q", body["okta_issuer"], "https://example.okta.com/oauth2/default")
+	}
+	if body["okta_client_id"] != "client123" {
+		t.Errorf("okta_client_id = %q, want %q", body["okta_client_id"], "client123")
+	}
+}
+
 // --- Health ---
 
 func TestHealth(t *testing.T) {

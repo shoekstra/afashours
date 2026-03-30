@@ -72,11 +72,32 @@ func runServe(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("creating auth validator: %w", err)
 	}
 
-	addr := viper.GetString("listen_addr")
-	afasAccount := strings.TrimSpace(viper.GetString("AFAS_ACCOUNT"))
-	afasToken := strings.TrimSpace(viper.GetString("AFAS_TOKEN"))
+	// CORS_ALLOWED_ORIGINS is a comma-separated list of origins the browser is
+	// permitted to make cross-origin requests from. In normal operation the
+	// frontend is served by the same Go binary (same origin), so CORS is not
+	// exercised. Set this when the frontend is served from a different domain,
+	// e.g. a CDN in production.
+	rawOrigins := strings.TrimSpace(viper.GetString("CORS_ALLOWED_ORIGINS"))
+	if rawOrigins == "" {
+		rawOrigins = "http://localhost:8080"
+	}
+	var allowedOrigins []string
+	for _, o := range strings.Split(rawOrigins, ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			allowedOrigins = append(allowedOrigins, o)
+		}
+	}
 
-	srv := api.NewServer(db, validator, afasAccount, afasToken)
+	addr := viper.GetString("listen_addr")
+	srv := api.NewServer(api.ServerConfig{
+		DB:             db,
+		Validator:      validator,
+		AfasAccount:    strings.TrimSpace(viper.GetString("AFAS_ACCOUNT")),
+		AfasToken:      strings.TrimSpace(viper.GetString("AFAS_TOKEN")),
+		OktaIssuer:     strings.TrimSpace(viper.GetString("OKTA_ISSUER")),
+		OktaClientID:   strings.TrimSpace(viper.GetString("OKTA_CLIENT_ID")),
+		AllowedOrigins: allowedOrigins,
+	})
 	fmt.Fprintf(os.Stderr, "listening on %s\n", addr)
 	return srv.Run(addr)
 }

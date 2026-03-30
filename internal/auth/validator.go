@@ -1,11 +1,16 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	jwtverifier "github.com/okta/okta-jwt-verifier-golang"
 )
+
+// ErrInvalidToken is returned by stub validators in tests when an empty token
+// is presented.
+var ErrInvalidToken = errors.New("invalid token")
 
 // Claims holds the JWT claims used by the application.
 type Claims struct {

@@ -41,9 +41,9 @@ type UserPreferences struct {
 // ProjectMapping maps a Toggl project name to an AFAS project code and item type.
 type ProjectMapping struct {
 	// Code is the AFAS project code (e.g. "PROJ001").
-	Code string
+	Code string `json:"code"`
 	// Type is the AFAS item code (e.g. "INTERNAL").
-	Type string
+	Type string `json:"type"`
 }
 
 // SyncJob represents an async sync operation.
