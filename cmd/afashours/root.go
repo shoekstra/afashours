@@ -17,5 +17,7 @@ func rootCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(serveCmd())
+	cmd.AddCommand(syncCmd())
+	cmd.AddCommand(initCmd())
 	return cmd
 }
