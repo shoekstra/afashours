@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -276,7 +278,7 @@ func TestPatchPreferences_ProjectsReplacedFully(t *testing.T) {
 
 func TestPostSync_CreatesJob(t *testing.T) {
 	db := &stubStorage{}
-	h := NewSyncHandler(context.Background(), db)
+	h := NewSyncHandler(context.Background(), db, "", "")
 	r := newRouter(injectClaims("sub123", "42"), func(r gin.IRouter) {
 		r.POST("/sync", h.PostSync)
 	})
@@ -300,7 +302,7 @@ func TestPostSync_CreatesJob(t *testing.T) {
 
 func TestPostSync_InvalidMonth(t *testing.T) {
 	db := &stubStorage{}
-	h := NewSyncHandler(context.Background(), db)
+	h := NewSyncHandler(context.Background(), db, "", "")
 	r := newRouter(injectClaims("sub123", "42"), func(r gin.IRouter) {
 		r.POST("/sync", h.PostSync)
 	})
@@ -322,7 +324,7 @@ func TestPostSync_InvalidMonth(t *testing.T) {
 
 func TestPostSync_DefaultsToCurrentMonth(t *testing.T) {
 	db := &stubStorage{}
-	h := NewSyncHandler(context.Background(), db)
+	h := NewSyncHandler(context.Background(), db, "", "")
 	r := newRouter(injectClaims("sub123", "42"), func(r gin.IRouter) {
 		r.POST("/sync", h.PostSync)
 	})
@@ -349,7 +351,7 @@ func TestPostSync_DefaultsToCurrentMonth(t *testing.T) {
 
 func TestGetSync_NotFound(t *testing.T) {
 	db := &stubStorage{job: nil}
-	h := NewSyncHandler(context.Background(), db)
+	h := NewSyncHandler(context.Background(), db, "", "")
 	r := newRouter(injectClaims("sub123", "42"), func(r gin.IRouter) {
 		r.GET("/sync/:jobID", h.GetSync)
 	})
@@ -369,7 +371,7 @@ func TestGetSync_WrongUser(t *testing.T) {
 		Subject: "other-user",
 		Status:  storage.JobStatusComplete,
 	}}
-	h := NewSyncHandler(context.Background(), db)
+	h := NewSyncHandler(context.Background(), db, "", "")
 	r := newRouter(injectClaims("sub123", "42"), func(r gin.IRouter) {
 		r.GET("/sync/:jobID", h.GetSync)
 	})
@@ -394,7 +396,7 @@ func TestGetSync_Found(t *testing.T) {
 		EndedAt:   &now,
 		Summary:   &storage.JobSummary{EntriesFound: 5, EntriesSynced: 4, EntriesSkipped: 1},
 	}}
-	h := NewSyncHandler(context.Background(), db)
+	h := NewSyncHandler(context.Background(), db, "", "")
 	r := newRouter(injectClaims("sub123", "42"), func(r gin.IRouter) {
 		r.GET("/sync/:jobID", h.GetSync)
 	})
@@ -418,5 +420,142 @@ func TestGetSync_Found(t *testing.T) {
 	}
 	if db.lastGetJobID != "job1" {
 		t.Errorf("GetJob called with ID %q, want %q", db.lastGetJobID, "job1")
+	}
+}
+
+// --- Worker outcome tests ---
+//
+// These tests exercise the background worker by triggering POST /sync, waiting
+// for the goroutine to finish, then inspecting the final job state via GET /sync.
+
+// newSyncRouter builds a router with both sync endpoints wired to the same handler.
+func newSyncRouter(claims gin.HandlerFunc, h *SyncHandler) *gin.Engine {
+	return newRouter(claims, func(r gin.IRouter) {
+		r.POST("/sync", h.PostSync)
+		r.GET("/sync/:jobID", h.GetSync)
+	})
+}
+
+// triggerSync posts to /sync and returns the job ID.
+func triggerSync(t *testing.T, r *gin.Engine) string {
+	t.Helper()
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/sync", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("POST /sync: status = %d, want %d", w.Code, http.StatusAccepted)
+	}
+	var resp map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	return resp["job_id"]
+}
+
+// getJobStatus fetches the job and returns the full syncJobResponse.
+func getJobStatus(t *testing.T, r *gin.Engine, jobID string) syncJobResponse {
+	t.Helper()
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/sync/"+jobID, nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /sync/%s: status = %d, want %d", jobID, w.Code, http.StatusOK)
+	}
+	var resp syncJobResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	return resp
+}
+
+func TestWorker_FailsOnMissingPrerequisites(t *testing.T) {
+	cases := []struct {
+		name      string
+		prefs     *storage.UserPreferences
+		wantError string
+	}{
+		{
+			name:      "no prefs",
+			prefs:     nil,
+			wantError: "no Toggl token configured",
+		},
+		{
+			name:      "no toggl token",
+			prefs:     &storage.UserPreferences{TogglToken: "", Projects: map[string]storage.ProjectMapping{"P": {Code: "C", Type: "T"}}},
+			wantError: "no Toggl token configured",
+		},
+		{
+			name:      "no projects",
+			prefs:     &storage.UserPreferences{TogglToken: "tok", Projects: map[string]storage.ProjectMapping{}},
+			wantError: "no project mappings configured",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			db := &stubStorage{prefs: tc.prefs}
+			h := NewSyncHandler(context.Background(), db, "acct", "tok")
+			r := newSyncRouter(injectClaims("sub123", "42"), h)
+
+			jobID := triggerSync(t, r)
+			h.Wait()
+
+			resp := getJobStatus(t, r, jobID)
+			if resp.Status != storage.JobStatusFailed {
+				t.Errorf("status = %q, want %q", resp.Status, storage.JobStatusFailed)
+			}
+			var errStr string
+			if resp.Summary != nil {
+				errStr = resp.Summary.Error
+			}
+			if !strings.Contains(errStr, tc.wantError) {
+				t.Errorf("error = %q, want it to contain %q", errStr, tc.wantError)
+			}
+		})
+	}
+}
+
+func TestWorker_CancelledOnShutdown(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // pre-cancel to simulate server shutdown before worker runs
+
+	db := &stubStorage{prefs: &storage.UserPreferences{
+		TogglToken: "tok",
+		Projects:   map[string]storage.ProjectMapping{"P": {Code: "C", Type: "T"}},
+	}}
+	h := NewSyncHandler(ctx, db, "acct", "tok")
+	r := newSyncRouter(injectClaims("sub123", "42"), h)
+
+	jobID := triggerSync(t, r)
+	h.Wait()
+
+	resp := getJobStatus(t, r, jobID)
+	if resp.Status != storage.JobStatusFailed {
+		t.Errorf("status = %q, want %q", resp.Status, storage.JobStatusFailed)
+	}
+	var errStr string
+	if resp.Summary != nil {
+		errStr = resp.Summary.Error
+	}
+	if !strings.Contains(errStr, "server shutting down") {
+		t.Errorf("error = %q, want it to contain 'server shutting down'", errStr)
+	}
+}
+
+func TestWorker_LogsUpdateErrors(t *testing.T) {
+	db := &stubStorage{
+		prefs:     nil, // causes failJob to be called
+		updateErr: errors.New("db write error"),
+	}
+	h := NewSyncHandler(context.Background(), db, "acct", "tok")
+	r := newSyncRouter(injectClaims("sub123", "42"), h)
+
+	jobID := triggerSync(t, r)
+	h.Wait()
+
+	// UpdateJob errors are logged but the stub still records the job state;
+	// the job should be in failed status.
+	resp := getJobStatus(t, r, jobID)
+	if resp.Status != storage.JobStatusFailed {
+		t.Errorf("status = %q, want %q", resp.Status, storage.JobStatusFailed)
 	}
 }

@@ -10,22 +10,33 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/shoekstra/afashours/internal/afas"
 	"github.com/shoekstra/afashours/internal/api/middleware"
+	"github.com/shoekstra/afashours/internal/source/toggl"
 	"github.com/shoekstra/afashours/internal/storage"
+	isync "github.com/shoekstra/afashours/internal/sync"
 )
 
 // SyncHandler handles sync job endpoints.
 type SyncHandler struct {
-	db        storage.Storage
-	workerCtx context.Context
-	workerWg  sync.WaitGroup
+	db          storage.Storage
+	workerCtx   context.Context
+	workerWg    sync.WaitGroup
+	afasAccount string
+	afasToken   string
 }
 
 // NewSyncHandler creates a SyncHandler. ctx is used as the parent context for
-// all background workers; cancelling it signals them to stop DB operations and
-// exit promptly (e.g. during server shutdown).
-func NewSyncHandler(ctx context.Context, db storage.Storage) *SyncHandler {
-	return &SyncHandler{db: db, workerCtx: ctx}
+// all background workers; cancelling it signals them to stop and exit promptly
+// (e.g. during server shutdown). afasAccount and afasToken are the shared
+// server-side AFAS credentials used for all sync operations.
+func NewSyncHandler(ctx context.Context, db storage.Storage, afasAccount, afasToken string) *SyncHandler {
+	return &SyncHandler{
+		db:          db,
+		workerCtx:   ctx,
+		afasAccount: afasAccount,
+		afasToken:   afasToken,
+	}
 }
 
 // Wait blocks until all background workers started by this handler have exited.
@@ -75,63 +86,115 @@ func (h *SyncHandler) PostSync(c *gin.Context) {
 		return
 	}
 
-	// TODO: replace stub with real sync worker in a follow-up PR.
-	// The worker runs in the background so the HTTP response is returned
-	// immediately. workerCtx is cancelled on server shutdown so the worker
-	// exits cleanly before db.Close() is called.
+	// Capture per-request values before the goroutine; the Gin context must
+	// not be accessed after the handler returns.
+	subject := claims.Subject
+	employeeNumber := claims.EmployeeNumber
+
 	h.workerWg.Add(1)
 	go func() {
 		defer h.workerWg.Done()
 		defer func() {
 			if r := recover(); r != nil {
 				log.Printf("panic in sync worker for job %s: %v\n%s", created.ID, r, debug.Stack())
-				now := time.Now().UTC()
-				created.Status = storage.JobStatusFailed
-				created.EndedAt = &now
-				created.Summary = &storage.JobSummary{Error: "panic during sync worker"}
-				updateCtx, updateCancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer updateCancel()
-				if err := h.db.UpdateJob(updateCtx, created); err != nil {
-					log.Printf("failed to mark job %s as failed after panic: %v", created.ID, err)
-				}
+				h.failJob(created, "internal error during sync")
 			}
 		}()
-		h.stubWorker(created)
+		h.runWorker(created, subject, employeeNumber)
 	}()
 
 	c.JSON(http.StatusAccepted, gin.H{"job_id": created.ID})
 }
 
-// stubWorker simulates a sync run until the real worker is implemented.
-func (h *SyncHandler) stubWorker(job *storage.SyncJob) {
+// runWorker executes the sync for the given job.
+func (h *SyncHandler) runWorker(job *storage.SyncJob, subject, employeeNumber string) {
+	// Mark job as running.
+	job.Status = storage.JobStatusRunning
+	if err := h.updateJob(job); err != nil {
+		log.Printf("failed to mark job %s as running: %v", job.ID, err)
+	}
+
+	// Bail out immediately if the server is already shutting down.
 	select {
-	case <-time.After(2 * time.Second):
 	case <-h.workerCtx.Done():
-		// Server is shutting down; mark the job as failed so it does not
-		// remain in a pending state indefinitely.
-		now := time.Now().UTC()
-		job.Status = storage.JobStatusFailed
-		job.EndedAt = &now
-		job.Summary = &storage.JobSummary{Error: "sync cancelled: server shutting down"}
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := h.db.UpdateJob(ctx, job); err != nil {
-			log.Printf("failed to mark job %s as failed on shutdown: %v", job.ID, err)
+		h.failJob(job, "sync cancelled: server shutting down")
+		return
+	default:
+	}
+
+	// Fetch user preferences (Toggl token + project mappings).
+	prefs, err := h.db.GetUserPreferences(h.workerCtx, subject)
+	if err != nil {
+		if h.workerCtx.Err() != nil {
+			h.failJob(job, "sync cancelled: server shutting down")
+			return
 		}
+		log.Printf("failed to load preferences for job %s: %v", job.ID, err)
+		h.failJob(job, "failed to load preferences")
+		return
+	}
+	if prefs == nil || prefs.TogglToken == "" {
+		h.failJob(job, "no Toggl token configured; add it via PATCH /api/v1/user/me/preferences")
+		return
+	}
+	if len(prefs.Projects) == 0 {
+		h.failJob(job, "no project mappings configured; add them via PATCH /api/v1/user/me/preferences")
+		return
+	}
+
+	source, err := toggl.NewSource(prefs.TogglToken)
+	if err != nil {
+		log.Printf("failed to initialise Toggl source for job %s: %v", job.ID, err)
+		h.failJob(job, "failed to initialise Toggl source")
+		return
+	}
+
+	engine := isync.NewEngine(afas.NewClient(h.afasAccount, h.afasToken))
+	summary, err := engine.Run(h.workerCtx, source, isync.RunOptions{
+		EmployeeNumber: employeeNumber,
+		Month:          job.Month,
+		Projects:       prefs.Projects,
+	})
+	if err != nil {
+		if h.workerCtx.Err() != nil {
+			h.failJob(job, "sync cancelled: server shutting down")
+			return
+		}
+		log.Printf("sync engine failed for job %s: %v", job.ID, err)
+		h.failJob(job, "sync failed")
+		return
+	}
+
+	if h.workerCtx.Err() != nil {
+		h.failJob(job, "sync cancelled: server shutting down")
 		return
 	}
 
 	now := time.Now().UTC()
 	job.Status = storage.JobStatusComplete
 	job.EndedAt = &now
-	job.Summary = &storage.JobSummary{}
+	job.Summary = summary
+	if err := h.updateJob(job); err != nil {
+		log.Printf("failed to update job %s after completion: %v", job.ID, err)
+	}
+}
 
-	// Use a fresh context: workerCtx may have been cancelled by the time the
-	// timer fires (e.g. shutdown signal received during the 2-second wait).
+// updateJob writes job state to the database using a short-lived independent
+// context so DB writes succeed even when workerCtx has been cancelled.
+func (h *SyncHandler) updateJob(job *storage.SyncJob) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := h.db.UpdateJob(ctx, job); err != nil {
-		log.Printf("failed to update job %s after stub worker completed: %v", job.ID, err)
+	return h.db.UpdateJob(ctx, job)
+}
+
+// failJob marks a job as failed with the given message and persists the state.
+func (h *SyncHandler) failJob(job *storage.SyncJob, msg string) {
+	now := time.Now().UTC()
+	job.Status = storage.JobStatusFailed
+	job.EndedAt = &now
+	job.Summary = &storage.JobSummary{Error: msg}
+	if err := h.updateJob(job); err != nil {
+		log.Printf("failed to mark job %s as failed: %v", job.ID, err)
 	}
 }
 

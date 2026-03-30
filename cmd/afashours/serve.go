@@ -35,6 +35,8 @@ func runServe(cmd *cobra.Command, _ []string) error {
 	}
 
 	requiredEnv := []string{
+		"AFAS_ACCOUNT",
+		"AFAS_TOKEN",
 		"OKTA_ISSUER",
 		"OKTA_AUDIENCE",
 		"OKTA_CLIENT_ID",
@@ -71,8 +73,10 @@ func runServe(cmd *cobra.Command, _ []string) error {
 	}
 
 	addr := viper.GetString("listen_addr")
+	afasAccount := strings.TrimSpace(viper.GetString("AFAS_ACCOUNT"))
+	afasToken := strings.TrimSpace(viper.GetString("AFAS_TOKEN"))
 
-	srv := api.NewServer(db, validator)
+	srv := api.NewServer(db, validator, afasAccount, afasToken)
 	fmt.Fprintf(os.Stderr, "listening on %s\n", addr)
 	return srv.Run(addr)
 }
