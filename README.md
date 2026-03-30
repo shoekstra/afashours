@@ -30,6 +30,8 @@ The `serve` subcommand starts the API server. All configuration is via environme
 
 | Variable | Description |
 |---|---|
+| `AFAS_ACCOUNT` | AFAS instance number (shared server secret) |
+| `AFAS_TOKEN` | AFAS API token (shared server secret) |
 | `OKTA_ISSUER` | Okta issuer URL (e.g. `https://your-org.okta.com/oauth2/default`) |
 | `OKTA_AUDIENCE` | Expected JWT audience (e.g. `api://default`) |
 | `OKTA_CLIENT_ID` | OIDC client ID for the afashours application |
