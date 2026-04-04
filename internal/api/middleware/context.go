@@ -7,6 +7,7 @@ import (
 
 const claimsKey = "auth_claims"
 
+// setClaimsInContext stores claims in the Gin context under claimsKey.
 func setClaimsInContext(c *gin.Context, claims *auth.Claims) {
 	c.Set(claimsKey, claims)
 }
