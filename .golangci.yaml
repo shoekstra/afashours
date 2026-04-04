@@ -21,13 +21,13 @@ linters:
     rules:
       - path: _test\.go
         linters:
-          - errcheck    # test helpers routinely ignore write/encode errors
-          - godot       # test function names don't need periods
-          - gosec       # G104 unhandled errors in test helpers are acceptable
-          - noctx       # http.NewRequest without context is fine in unit tests
-          - revive      # unexported test helpers are fine undocumented
-          - staticcheck # SA5011: t.Fatal terminates the goroutine; staticcheck doesn't model this
-          - unparam     # test helper parameters may always receive the same value
+          - errcheck     # test helpers routinely ignore write/encode errors
+          - godot        # test function names don't need periods
+          - gosec        # G104 unhandled errors in test helpers are acceptable
+          - noctx        # http.NewRequest without context is fine in unit tests
+          - revive       # unexported test helpers are fine undocumented
+          - staticcheck  # SA5011: t.Fatal terminates the goroutine; staticcheck doesn't model this
+          - unparam      # test helper parameters may always receive the same value
       - path: cmd/
         linters:
           - revive  # unexported cmd helpers (runServe, resolveConfigPath, etc.) don't need exported docs
