@@ -19,6 +19,8 @@ func NewSource(token string) (*Source, error) {
 	return newSource(token)
 }
 
+// newSource creates a Source with optional client options. Used by NewSource
+// (production) and tests (which inject a custom HTTP client option).
 func newSource(token string, opts ...togglapi.ClientOption) (*Source, error) {
 	client, err := togglapi.NewClient(token, opts...)
 	if err != nil {

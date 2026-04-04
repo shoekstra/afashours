@@ -17,6 +17,7 @@ import (
 	localconfig "github.com/shoekstra/afashours/internal/config"
 )
 
+// initCmd returns the cobra command for initialising or updating the local config file.
 func initCmd() *cobra.Command {
 	var cfgFile string
 
@@ -34,6 +35,8 @@ func initCmd() *cobra.Command {
 	return cmd
 }
 
+// runInit is the RunE implementation for initCmd. It walks the user through
+// setting up or updating the local config file interactively.
 func runInit(ctx context.Context, cfgFile string) error {
 	path, err := resolveConfigPath(cfgFile)
 	if err != nil {
@@ -118,6 +121,8 @@ func runInit(ctx context.Context, cfgFile string) error {
 	return nil
 }
 
+// configureProjects interactively adds or updates project mappings in cfg by
+// fetching available projects and types from the AFAS API.
 func configureProjects(ctx context.Context, cfg *localconfig.Config, afasToken string) error {
 	if len(cfg.Projects) > 0 {
 		fmt.Printf("Existing project mappings: %d\n", len(cfg.Projects))
@@ -213,6 +218,7 @@ func configureProjects(ctx context.Context, cfg *localconfig.Config, afasToken s
 	return nil
 }
 
+// promptString shows a text prompt with an optional default value and validator.
 func promptString(label, defaultVal string, validate promptui.ValidateFunc) (string, error) {
 	p := promptui.Prompt{
 		Label:    label,
@@ -226,6 +232,9 @@ func promptString(label, defaultVal string, validate promptui.ValidateFunc) (str
 	return result, nil
 }
 
+// promptMasked shows a masked text prompt (for secrets). When alreadySet is
+// true the label is annotated to indicate that a blank response keeps the
+// existing value.
 func promptMasked(label string, alreadySet bool) (string, error) {
 	if alreadySet {
 		label += " (leave blank to keep existing)"
@@ -241,6 +250,8 @@ func promptMasked(label string, alreadySet bool) (string, error) {
 	return result, nil
 }
 
+// promptSelect shows an interactive selection list, pre-positioning the cursor
+// on the current value if it appears in items.
 func promptSelect(label string, items []string, current string) (string, error) {
 	cursorPos := 0
 	for i, item := range items {
@@ -260,6 +271,8 @@ func promptSelect(label string, items []string, current string) (string, error) 
 	return result, nil
 }
 
+// promptConfirm shows a yes/no confirmation prompt. Returns false without an
+// error when the user answers no (promptui.ErrAbort).
 func promptConfirm(label string) (bool, error) {
 	p := promptui.Prompt{
 		Label:     label,
@@ -274,6 +287,8 @@ func promptConfirm(label string) (bool, error) {
 	return true, nil
 }
 
+// selectProject presents a searchable list of AFAS projects and returns the
+// one the user selects.
 func selectProject(projects []afas.Project) (afas.Project, error) {
 	templates := &promptui.SelectTemplates{
 		Active:   `▶ {{ .Name | cyan | bold }} ({{ .ID }})`,
@@ -302,6 +317,8 @@ func selectProject(projects []afas.Project) (afas.Project, error) {
 	return projects[idx], nil
 }
 
+// selectProjectType presents a searchable list of AFAS project types and
+// returns the one the user selects.
 func selectProjectType(types []afas.ProjectType) (afas.ProjectType, error) {
 	templates := &promptui.SelectTemplates{
 		Active:   `▶ {{ .Description | cyan | bold }}`,
@@ -327,6 +344,8 @@ func selectProjectType(types []afas.ProjectType) (afas.ProjectType, error) {
 	return types[idx], nil
 }
 
+// filterProjectTypes returns the subset of types whose IntegrationGroup matches
+// group. Returns all types unchanged when group is empty.
 func filterProjectTypes(types []afas.ProjectType, group string) []afas.ProjectType {
 	if group == "" {
 		return types
@@ -340,6 +359,8 @@ func filterProjectTypes(types []afas.ProjectType, group string) []afas.ProjectTy
 	return result
 }
 
+// validateInt is a promptui validator that rejects non-numeric and
+// non-positive values.
 func validateInt(s string) error {
 	n, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
@@ -351,10 +372,12 @@ func validateInt(s string) error {
 	return nil
 }
 
+// containsFold reports whether substr appears within s, ignoring case.
 func containsFold(s, substr string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
 
+// capitalize returns s with its first Unicode letter uppercased.
 func capitalize(s string) string {
 	if s == "" {
 		return s
@@ -363,6 +386,8 @@ func capitalize(s string) string {
 	return string(unicode.ToUpper(r)) + s[size:]
 }
 
+// wrapPromptErr normalises promptui errors: ErrInterrupt is wrapped with a
+// user-friendly message; all other errors are returned as-is.
 func wrapPromptErr(err error) error {
 	if errors.Is(err, promptui.ErrInterrupt) {
 		return fmt.Errorf("interrupted: %w", err)

@@ -14,6 +14,7 @@ import (
 	isync "github.com/shoekstra/afashours/internal/sync"
 )
 
+// syncCmd returns the cobra command for syncing time entries to AFAS.
 func syncCmd() *cobra.Command {
 	var (
 		cfgFile string
@@ -37,6 +38,8 @@ func syncCmd() *cobra.Command {
 	return cmd
 }
 
+// runSync is the RunE implementation for syncCmd. It loads config, builds the
+// sync engine, and runs a single sync for the given month.
 func runSync(ctx context.Context, cfgFile, month string, dryRun bool) error {
 	path, err := resolveConfigPath(cfgFile)
 	if err != nil {
@@ -110,11 +113,13 @@ func (d *dryRunAFASClient) GetDayEntries(_ context.Context, _, date string) ([]a
 	return nil, nil
 }
 
+// DeleteEntry prints what would be deleted without making any API call.
 func (d *dryRunAFASClient) DeleteEntry(_ context.Context, entry afas.WorkEntryResponse) error {
 	fmt.Printf("  [dry-run] would delete entry %d (%s)\n", entry.RecordNumber, entry.Period)
 	return nil
 }
 
+// InsertEntry prints what would be inserted without making any API call.
 func (d *dryRunAFASClient) InsertEntry(_ context.Context, entry *afas.WorkEntry) (string, error) {
 	fmt.Printf("  [dry-run] would insert: %s %s–%s  project=%s type=%s\n",
 		entry.DateTime, entry.StartTime, entry.EndTime, entry.ProjectID, entry.ItemCode)
