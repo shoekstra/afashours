@@ -10,7 +10,23 @@ You need an Okta organisation to handle authentication. For development, sign up
 
 1. Go to https://developer.okta.com/signup/
 2. Choose the **"Best for Developers"** option (the Integrator Free Plan)
-3. Once your org is provisioned, create an OIDC application for afashours
+3. Once your org is provisioned, create an OIDC application for afashours (type: Single-Page Application)
+   - Sign-in redirect URI: `http://localhost:8080/login/callback` (add your production URL when deploying)
+   - Sign-out redirect URI: `http://localhost:8080`
+   - Allowed grant types: Authorization Code with PKCE
+
+**Employee number claim (required)**
+
+The backend reads an `employeeNumber` claim from every access token. You must configure this in Okta before any user can authenticate:
+
+1. **Add the attribute to the user profile**: Admin Console → Directory → Profile Editor → User → Add Attribute
+   - Data type: String, Variable name: `employeeNumber`, User permission: Read Only
+   - Populate it for each user in Directory → People → (user) → Edit profile
+
+2. **Add it as an access token claim**: Admin Console → Security → API → Authorization Servers → (your server) → Claims → Add Claim
+   - Name: `employeeNumber`, Include in token type: Access Token, Value type: Expression, Value: `user.employeeNumber`
+
+3. Verify using the Token Preview tab in the Authorization Server — the access token for a test user must include `"employeeNumber": "12345"`.
 
 ### AFAS
 
@@ -42,6 +58,7 @@ The `serve` subcommand starts the API server. All configuration is via environme
 | Variable | Default | Description |
 |---|---|---|
 | `SQLITE_PATH` | `afashours.db` | Path to the SQLite database file |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:8080` | Comma-separated list of allowed CORS origins. Not needed in the default setup where the Go binary serves both the frontend and API from the same origin. Set this when the frontend is served from a separate domain (e.g. a CDN). Example: `CORS_ALLOWED_ORIGINS=https://app.example.com` |
 
 Start the server:
 
