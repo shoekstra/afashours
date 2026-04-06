@@ -7,9 +7,15 @@ tasks:
       - go run ./cmd/afashours serve
 
   build:
-    desc: Build the afashours binary
+    desc: Build the afashours binary (frontend must already be built)
     cmds:
       - go build -o bin/afashours ./cmd/afashours
+
+  build:full:
+    desc: Build frontend then binary (produces a fully self-contained binary)
+    cmds:
+      - go generate ./internal/api/static/...
+      - task: build
 
   test:
     desc: Run all tests with race detector

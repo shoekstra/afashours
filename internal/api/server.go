@@ -3,9 +3,13 @@ package api
 import (
 	"context"
 	"errors"
+	"io/fs"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -13,9 +17,21 @@ import (
 
 	"github.com/shoekstra/afashours/internal/api/handler"
 	"github.com/shoekstra/afashours/internal/api/middleware"
+	"github.com/shoekstra/afashours/internal/api/static"
 	"github.com/shoekstra/afashours/internal/auth"
 	"github.com/shoekstra/afashours/internal/storage"
 )
+
+// ServerConfig holds the parameters needed to create a Server.
+type ServerConfig struct {
+	DB              storage.Storage
+	Validator       auth.Validator
+	AfasAccount     string
+	AfasToken       string
+	OktaIssuer      string
+	OktaClientID    string
+	AllowedOrigins  []string
+}
 
 // Server holds the HTTP server dependencies and router.
 type Server struct {
@@ -25,22 +41,25 @@ type Server struct {
 }
 
 // NewServer wires up the Gin router with all routes and middleware.
-func NewServer(db storage.Storage, validator auth.Validator, afasAccount, afasToken string) *Server {
+func NewServer(cfg ServerConfig) *Server {
 	workerCtx, workerCancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is stored in Server.workerCancel and called in Run's defer
 
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
+	if len(cfg.AllowedOrigins) > 0 {
+		r.Use(middleware.CORS(cfg.AllowedOrigins))
+	}
 
 	// Public routes.
-	h := handler.NewHealthHandler()
-	r.GET("/health", h.Health)
+	r.GET("/health", handler.NewHealthHandler().Health)
+	r.GET("/api/v1/config", handler.NewConfigHandler(cfg.OktaIssuer, cfg.OktaClientID).GetConfig)
 
 	// Authenticated routes.
-	userH := handler.NewUserHandler(db)
-	syncH := handler.NewSyncHandler(workerCtx, db, afasAccount, afasToken)
+	userH := handler.NewUserHandler(cfg.DB)
+	syncH := handler.NewSyncHandler(workerCtx, cfg.DB, cfg.AfasAccount, cfg.AfasToken)
 
 	authed := r.Group("/api/v1")
-	authed.Use(middleware.Auth(validator))
+	authed.Use(middleware.Auth(cfg.Validator))
 	{
 		authed.GET("/user/me", userH.GetMe)
 		authed.GET("/user/me/preferences", userH.GetPreferences)
@@ -49,11 +68,62 @@ func NewServer(db storage.Storage, validator auth.Validator, afasAccount, afasTo
 		authed.GET("/sync/:jobID", syncH.GetSync)
 	}
 
+	// Serve the embedded Vue SPA for all non-API paths.
+	// API paths that don't match a route return JSON 404.
+	distFS, err := fs.Sub(static.FS, "dist")
+	if err != nil {
+		log.Fatalf("failed to sub embedded dist filesystem: %v", err)
+	}
+	fileServer := http.FileServer(http.FS(distFS))
+	r.NoRoute(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		if path == "/api" || strings.HasPrefix(path, "/api/") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+
+		// Only GET and HEAD can serve the SPA or static assets.
+		if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		// Prevent stale asset serving: since filenames are stable (no content
+		// hash), browsers must always revalidate. http.FileServer sets ETags so
+		// most responses will be 304 Not Modified after the first load.
+		c.Header("Cache-Control", "no-cache")
+
+		// Try to serve the exact file first.
+		if _, err := distFS.Open(strings.TrimPrefix(path, "/")); err == nil {
+			fileServer.ServeHTTP(c.Writer, c.Request)
+			return
+		}
+
+		// If the path looks like a missing asset (has a file extension), return
+		// 404 rather than silently serving index.html.
+		if filepath.Ext(path) != "" {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		// SPA fallback: all extension-free paths are Vue Router routes.
+		// Serving "/" causes http.FileServer to return index.html directly;
+		// serving "/index.html" triggers a redirect loop.
+		c.Request.URL.Path = "/"
+		fileServer.ServeHTTP(c.Writer, c.Request)
+	})
+
 	return &Server{
 		router:       r,
 		syncHandler:  syncH,
 		workerCancel: workerCancel,
 	}
+}
+
+// ServeHTTP implements http.Handler, allowing Server to be used directly in
+// tests with httptest.NewRecorder without starting a real listener.
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.router.ServeHTTP(w, r)
 }
 
 // Run starts the HTTP server on addr and blocks until SIGINT or SIGTERM is
@@ -87,6 +157,7 @@ func (s *Server) Run(addr string) error {
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(quit) // always unregister on exit (e.g. ListenAndServe error)
 
 	select {
 	case err := <-errCh:
