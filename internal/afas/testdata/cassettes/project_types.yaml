@@ -1,0 +1,59 @@
+---
+version: 2
+interactions:
+- id: 0
+  request:
+    proto: HTTP/1.1
+    proto_major: 1
+    proto_minor: 1
+    content_length: 0
+    host: 12345.rest.afas.online
+    form:
+      take:
+      - "9999"
+    headers:
+      Accept:
+      - application/json
+      Content-Type:
+      - application/json; charset=utf-8
+      User-Agent:
+      - go-afas-profit-rest/0.0.1
+    url: https://12345.rest.afas.online/ProfitRestServices/connectors/_Hours_Types?take=9999
+    method: GET
+  response:
+    proto: HTTP/1.1
+    proto_major: 1
+    proto_minor: 1
+    transfer_encoding:
+    - chunked
+    content_length: -1
+    uncompressed: true
+    body: "{\"skip\" : 0,\r\n  \"take\" : 9999,\r\n  \"rows\" : [{\"item_code\":\"SBPABS\",\"description\":\"Personal time off (holidays)\",\"create_date\":\"2007-11-10T15:43:25Z\",\"modified_date\":\"2020-07-01T13:08:36Z\",\"integration_group\":\"INT\"},{\"item_code\":\"SBPSICK\",\"description\":\"Absence (Illness or pregnancy)\",\"create_date\":\"2007-11-10T15:43:25Z\",\"modified_date\":\"2022-10-18T09:55:47Z\",\"integration_group\":\"VV\"},{\"item_code\":\"*****\",\"description\":null,\"create_date\":\"2008-05-26T22:13:54Z\",\"modified_date\":\"2020-03-30T10:27:26Z\",\"integration_group\":\"*****\"},{\"item_code\":\"DEV\",\"description\":\"Development (WBSO)\",\"create_date\":\"2013-03-13T13:08:06Z\",\"modified_date\":\"2020-03-31T09:24:59Z\",\"integration_group\":\"DEV\"},{\"item_code\":\"OV\",\"description\":\"Ouderschapsverlof\",\"create_date\":\"2014-03-14T14:40:21Z\",\"modified_date\":\"2020-03-31T09:25:37Z\",\"integration_group\":\"VV\"},{\"item_code\":\"OPS\",\"description\":\"OPS\",\"create_date\":\"2020-03-30T08:59:15Z\",\"modified_date\":\"2020-03-31T09:28:29Z\",\"integration_group\":\"OPS\"},{\"item_code\":\"ARGCD001\",\"description\":\"Coordination\",\"create_date\":\"2020-03-30T14:23:57Z\",\"modified_date\":\"2020-08-29T07:49:27Z\",\"integration_group\":\"ARG\"},{\"item_code\":\"ARGCD002\",\"description\":\"Analysis\",\"create_date\":\"2020-03-30T14:24:20Z\",\"modified_date\":\"2020-08-29T07:47:15Z\",\"integration_group\":\"ARG\"},{\"item_code\":\"ARGCD004\",\"description\":\"Deployment\",\"create_date\":\"2020-03-30T14:24:38Z\",\"modified_date\":\"2020-08-29T07:47:26Z\",\"integration_group\":\"ARG\"},{\"item_code\":\"ARGCD005\",\"description\":\"Integration\",\"create_date\":\"2020-03-30T14:24:52Z\",\"modified_date\":\"2020-08-29T07:47:33Z\",\"integration_group\":\"ARG\"},{\"item_code\":\"ARGCD006\",\"description\":\"Release management\",\"create_date\":\"2020-03-30T14:25:08Z\",\"modified_date\":\"2020-08-29T07:47:38Z\",\"integration_group\":\"ARG\"},{\"item_code\":\"ARGCD007\",\"description\":\"Documentation\",\"create_date\":\"2020-03-30T14:25:26Z\",\"modified_date\":\"2020-08-29T07:47:45Z\",\"integration_group\":\"ARG\"},{\"item_code\":\"ARGCD008\",\"description\":\"Business Consultancy\",\"create_date\":\"2020-03-30T14:25:44Z\",\"modified_date\":\"2020-08-29T07:48:00Z\",\"integration_group\":\"ARG\"},{\"item_code\":\"ARGCD009\",\"description\":\"Project Management\",\"create_date\":\"2020-03-30T14:26:03Z\",\"modified_date\":\"2020-08-29T07:48:07Z\",\"integration_group\":\"ARG\"},{\"item_code\":\"ARGCD010\",\"description\":\"Engineering\\/Infrastructure\",\"create_date\":\"2020-03-30T14:26:18Z\",\"modified_date\":\"2020-08-29T07:48:13Z\",\"integration_group\":\"ARG\"},{\"item_code\":\"BNPCOM\",\"description\":\"BNP US Compensation hours\",\"create_date\":\"2020-03-30T14:26:36Z\",\"modified_date\":\"2020-08-29T07:48:19Z\",\"integration_group\":\"BNP\"},{\"item_code\":\"BNPTRAVEL\",\"description\":\"BNP US Travel Costs\",\"create_date\":\"2020-03-30T14:26:55Z\",\"modified_date\":\"2020-08-29T07:48:25Z\",\"integration_group\":\"BNP\"},{\"item_code\":\"DELIVERABLES\",\"description\":\"Deliverables\",\"create_date\":\"2020-03-30T14:27:26Z\",\"modified_date\":\"2020-08-29T07:48:39Z\",\"integration_group\":\"EET\"},{\"item_code\":\"DEVARGCD003\",\"description\":\"Engineering (WBSO)\",\"create_date\":\"2020-03-30T14:27:47Z\",\"modified_date\":\"2020-08-29T07:46:03Z\",\"integration_group\":\"ARG\"},{\"item_code\":\"DEVARGCD004\",\"description\":\"Testing\",\"create_date\":\"2020-03-30T14:28:03Z\",\"modified_date\":\"2020-08-29T07:46:10Z\",\"integration_group\":\"ARG\"},{\"item_code\":\"DEVMNY001\",\"description\":\"Dev - Onboarding (MNY)\",\"create_date\":\"2020-03-30T14:34:12Z\",\"modified_date\":\"2020-08-29T07:46:17Z\",\"integration_group\":\"MNY\"},{\"item_code\":\"DEVMNY002\",\"description\":\"SCRUM: Smart accounts (461036) (MNY)\",\"create_date\":\"2020-03-30T14:34:29Z\",\"modified_date\":\"2020-08-29T08:01:16Z\",\"integration_group\":\"MNY\"},{\"item_code\":\"DEVMNY005\",\"description\":\"SCRUM: Generic features team (461037) (MNY)\",\"create_date\":\"2020-03-30T14:35:45Z\",\"modified_date\":\"2020-08-29T08:01:31Z\",\"integration_group\":\"MNY\"},{\"item_code\":\"ENXACH\",\"description\":\"Achilles\",\"create_date\":\"2020-03-30T14:36:16Z\",\"modified_date\":\"2020-08-29T07:46:40Z\",\"integration_group\":\"ENX\"},{\"item_code\":\"KNOWLEDGE\",\"description\":\"Knowledge transfer and meetings\",\"create_date\":\"2020-03-30T14:46:22Z\",\"modified_date\":\"2020-08-29T07:47:00Z\",\"integration_group\":\"EET\"},{\"item_code\":\"PM\",\"description\":\"Project Management SBP\",\"create_date\":\"2020-03-30T14:46:38Z\",\"modified_date\":\"2020-08-29T07:49:13Z\",\"integration_group\":\"EET\"},{\"item_code\":\"SBPCMT\",\"description\":\"SBP Community Management\",\"create_date\":\"2020-03-30T14:48:18Z\",\"modified_date\":\"2020-03-31T09:25:46Z\",\"integration_group\":\"INT\"},{\"item_code\":\"SBPCOMP\",\"description\":\"Compensation for exceptional overtime\",\"create_date\":\"2020-03-30T14:49:36Z\",\"modified_date\":\"2020-03-31T09:25:48Z\",\"integration_group\":\"INT\"},{\"item_code\":\"SBPHRM\",\"description\":\"Coaching and recruitment activities\",\"create_date\":\"2020-03-30T14:49:53Z\",\"modified_date\":\"2020-03-31T09:25:51Z\",\"integration_group\":\"INT\"},{\"item_code\":\"SBPIA\",\"description\":\"Internal Audit SBP General\",\"create_date\":\"2020-03-30T14:50:10Z\",\"modified_date\":\"2020-03-31T09:25:55Z\",\"integration_group\":\"INT\"},{\"item_code\":\"SBPINT\",\"description\":\"Other internal activities\",\"create_date\":\"2020-03-30T14:50:54Z\",\"modified_date\":\"2020-03-31T09:25:57Z\",\"integration_group\":\"INT\"},{\"item_code\":\"SBPRFP\",\"description\":\"Presales\",\"create_date\":\"2020-03-30T14:51:35Z\",\"modified_date\":\"2020-03-31T09:26:00Z\",\"integration_group\":\"SAL\"},{\"item_code\":\"SBPSHL\",\"description\":\"Other Leave - Unpaid\",\"create_date\":\"2020-03-30T14:51:57Z\",\"modified_date\":\"2022-12-21T09:55:35Z\",\"integration_group\":\"VV\"},{\"item_code\":\"SBPSPL\",\"description\":\"Special Leave\",\"create_date\":\"2020-03-30T14:52:39Z\",\"modified_date\":\"2020-07-01T13:08:42Z\",\"integration_group\":\"INT\"},{\"item_code\":\"SBPTECHLEADS\",\"description\":\"Technology Leads\",\"create_date\":\"2020-03-30T14:52:56Z\",\"modified_date\":\"2020-03-31T09:26:10Z\",\"integration_group\":\"INT\"},{\"item_code\":\"SBPTRAIN\",\"description\":\"Training and Education\",\"create_date\":\"2020-03-30T14:55:59Z\",\"modified_date\":\"2020-03-31T09:26:13Z\",\"integration_group\":\"INT\"},{\"item_code\":\"TRANSITION\",\"description\":\"Transition Support\",\"create_date\":\"2020-03-30T14:56:51Z\",\"modified_date\":\"2020-08-29T07:49:03Z\",\"integration_group\":\"EET\"},{\"item_code\":\"SBPPUBL\",\"description\":\"SBPPUBL\",\"create_date\":\"2020-07-23T16:18:51Z\",\"modified_date\":\"2020-07-26T08:08:12Z\",\"integration_group\":\"VV\"},{\"item_code\":\"SECGUARD\",\"description\":\"Security Guardicore project\",\"create_date\":\"2020-07-23T19:14:25Z\",\"modified_date\":\"2020-08-29T07:45:00Z\",\"integration_group\":\"OPS\"},{\"item_code\":\"PROJOPS\",\"description\":\"Projects - OPS\",\"create_date\":\"2020-10-22T22:08:41Z\",\"modified_date\":\"2020-10-22T22:10:35Z\",\"integration_group\":\"OPS\"},{\"item_code\":\"PROJDEV\",\"description\":\"Projects - DEV (WBSO)\",\"create_date\":\"2020-10-22T22:09:15Z\",\"modified_date\":\"2021-03-03T21:05:16Z\",\"integration_group\":\"DEV\"},{\"item_code\":\"SBPCL\",\"description\":\"Care Leave\",\"create_date\":\"2022-09-22T15:10:10Z\",\"modified_date\":\"2023-01-12T16:13:50Z\",\"integration_group\":\"VV\"}]}"
+    headers:
+      Access-Control-Allow-Headers:
+      - Content-Type, Accept, Authorization, OnlineSessionId, Accept-Language
+      Access-Control-Allow-Methods:
+      - GET, POST, PUT, DELETE, OPTIONS
+      Access-Control-Allow-Origin:
+      - "*"
+      Access-Control-Max-Age:
+      - "1728000"
+      Cache-Control:
+      - no-store, no-cache
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Sat, 18 Oct 2025 09:01:45 GMT
+      Strict-Transport-Security:
+      - max-age=31536000
+      X-Afas-Proxy-Stats:
+      - init(0ms), before response(0ms), after response(217ms), after compressing(218ms), complete(218ms)
+      X-Afas-Proxy-Version:
+      - 5.0.0.0
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - deny
+    status: 200 OK
+    code: 200
+    duration: 316.45425ms
