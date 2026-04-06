@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -45,7 +46,9 @@ func NewServer(cfg ServerConfig) *Server {
 
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
-	r.Use(middleware.CORS(cfg.AllowedOrigins))
+	if len(cfg.AllowedOrigins) > 0 {
+		r.Use(middleware.CORS(cfg.AllowedOrigins))
+	}
 
 	// Public routes.
 	r.GET("/health", handler.NewHealthHandler().Health)
@@ -67,11 +70,14 @@ func NewServer(cfg ServerConfig) *Server {
 
 	// Serve the embedded Vue SPA for all non-API paths.
 	// API paths that don't match a route return JSON 404.
-	distFS, _ := fs.Sub(static.FS, "dist")
+	distFS, err := fs.Sub(static.FS, "dist")
+	if err != nil {
+		log.Fatalf("failed to sub embedded dist filesystem: %v", err)
+	}
 	fileServer := http.FileServer(http.FS(distFS))
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
-		if strings.HasPrefix(path, "/api/") {
+		if path == "/api" || strings.HasPrefix(path, "/api/") {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}

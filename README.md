@@ -58,7 +58,7 @@ The `serve` subcommand starts the API server. All configuration is via environme
 | Variable | Default | Description |
 |---|---|---|
 | `SQLITE_PATH` | `afashours.db` | Path to the SQLite database file |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:8080` | Comma-separated list of allowed CORS origins. Not needed in the default setup where the Go binary serves both the frontend and API from the same origin. Set this when the frontend is served from a separate domain (e.g. a CDN). Example: `CORS_ALLOWED_ORIGINS=https://app.example.com` |
+| `CORS_ALLOWED_ORIGINS` | _(unset)_ | Comma-separated list of allowed CORS origins. Not needed in the default setup where the Go binary serves both the frontend and API from the same origin. Set this when the frontend is served from a separate domain (e.g. a CDN). Example: `CORS_ALLOWED_ORIGINS=https://app.example.com` |
 
 Start the server:
 

@@ -75,16 +75,19 @@ func runServe(cmd *cobra.Command, _ []string) error {
 	// CORS_ALLOWED_ORIGINS is a comma-separated list of origins the browser is
 	// permitted to make cross-origin requests from. In normal operation the
 	// frontend is served by the same Go binary (same origin), so CORS is not
-	// exercised. Set this when the frontend is served from a different domain,
-	// e.g. a CDN in production.
-	rawOrigins := strings.TrimSpace(viper.GetString("CORS_ALLOWED_ORIGINS"))
-	if rawOrigins == "" {
-		rawOrigins = "http://localhost:8080"
-	}
+	// needed and this variable should be left unset. Set it only when the
+	// frontend is served from a different domain, e.g. a CDN in production or
+	// the Vite dev server during development (http://localhost:5173).
 	var allowedOrigins []string
-	for _, o := range strings.Split(rawOrigins, ",") {
-		if o = strings.TrimSpace(o); o != "" {
-			allowedOrigins = append(allowedOrigins, o)
+	rawOrigins := strings.TrimSpace(viper.GetString("CORS_ALLOWED_ORIGINS"))
+	if rawOrigins != "" {
+		for _, o := range strings.Split(rawOrigins, ",") {
+			if o = strings.TrimSpace(o); o != "" {
+				allowedOrigins = append(allowedOrigins, o)
+			}
+		}
+		if len(allowedOrigins) == 0 {
+			return fmt.Errorf("CORS_ALLOWED_ORIGINS is set but contains no valid origins")
 		}
 	}
 
