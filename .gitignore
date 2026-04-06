@@ -9,6 +9,7 @@ coverage.html
 # Config files (local development)
 *.yaml
 *.yml
+!.codecov.yml
 !.coderabbit.yaml
 !.golangci.yml
 !Taskfile.yaml

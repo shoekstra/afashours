@@ -10,6 +10,13 @@ import (
 	"github.com/shoekstra/afashours/internal/storage/sqlite"
 )
 
+func TestNewDB_ShortKey(t *testing.T) {
+	_, err := sqlite.NewDB(":memory:", "tooshort")
+	if err == nil {
+		t.Fatal("expected error for short encryption key, got nil")
+	}
+}
+
 func newTestDB(t *testing.T) *sqlite.DB {
 	t.Helper()
 	db, err := sqlite.NewDB(":memory:", "test-encryption-key")

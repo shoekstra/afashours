@@ -101,6 +101,28 @@ func TestLoadFile_NotExist(t *testing.T) {
 	}
 }
 
+func TestLoadFile_InvalidYAML(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte(":\tinvalid: yaml::\n"), 0600); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	_, err := config.LoadFile(context.Background(), path)
+	if err == nil {
+		t.Fatal("expected error for invalid YAML, got nil")
+	}
+}
+
+func TestDefaultPath(t *testing.T) {
+	path, err := config.DefaultPath()
+	if err != nil {
+		t.Fatalf("DefaultPath: %v", err)
+	}
+	want := filepath.Join(".config", "afashours", "config.yaml")
+	if !strings.HasSuffix(path, want) {
+		t.Errorf("DefaultPath = %q, want it to end with %q", path, want)
+	}
+}
+
 // --- Load applies env overrides, LoadFile does not ---
 
 func TestLoad_EnvOverridesApplied(t *testing.T) {

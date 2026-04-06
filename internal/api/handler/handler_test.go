@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -583,5 +584,210 @@ func TestWorker_LogsUpdateErrors(t *testing.T) {
 	resp := getJobStatus(t, r, jobID)
 	if resp.Status != storage.JobStatusFailed {
 		t.Errorf("status = %q, want %q", resp.Status, storage.JobStatusFailed)
+	}
+}
+
+func TestWorker_PrefsDBError(t *testing.T) {
+	db := &stubStorage{prefsErr: errors.New("db unavailable")}
+	h := NewSyncHandler(context.Background(), db, "acct", "tok")
+	r := newSyncRouter(injectClaims("sub123", "42"), h)
+
+	jobID := triggerSync(t, r)
+	h.Wait()
+
+	resp := getJobStatus(t, r, jobID)
+	if resp.Status != storage.JobStatusFailed {
+		t.Errorf("status = %q, want %q", resp.Status, storage.JobStatusFailed)
+	}
+}
+
+// --- Error-path table tests ---
+
+func newRouterNoClaims(routes func(r gin.IRouter)) *gin.Engine {
+	r := gin.New()
+	routes(r)
+	return r
+}
+
+// TestHandlerErrorPaths covers no-claims and DB-error branches across all
+// handlers using a single table-driven loop.
+func TestHandlerErrorPaths(t *testing.T) {
+	cases := []struct {
+		name        string
+		db          *stubStorage
+		noClaims    bool
+		method      string
+		path        string
+		body        string
+		contentType string
+		// register wires routes onto r and returns an optional post-request wait
+		// function (used for SyncHandler.Wait).
+		register func(r gin.IRouter, db *stubStorage) func()
+		wantCode int
+	}{
+		{
+			name:     "GetMe/no claims",
+			db:       &stubStorage{},
+			noClaims: true,
+			method:   http.MethodGet,
+			path:     "/user/me",
+			register: func(r gin.IRouter, db *stubStorage) func() {
+				r.GET("/user/me", NewUserHandler(db).GetMe)
+				return nil
+			},
+			wantCode: http.StatusInternalServerError,
+		},
+		{
+			name:     "GetPreferences/no claims",
+			db:       &stubStorage{},
+			noClaims: true,
+			method:   http.MethodGet,
+			path:     "/preferences",
+			register: func(r gin.IRouter, db *stubStorage) func() {
+				r.GET("/preferences", NewUserHandler(db).GetPreferences)
+				return nil
+			},
+			wantCode: http.StatusInternalServerError,
+		},
+		{
+			name:   "GetPreferences/db error",
+			db:     &stubStorage{prefsErr: errors.New("db error")},
+			method: http.MethodGet,
+			path:   "/preferences",
+			register: func(r gin.IRouter, db *stubStorage) func() {
+				r.GET("/preferences", NewUserHandler(db).GetPreferences)
+				return nil
+			},
+			wantCode: http.StatusInternalServerError,
+		},
+		{
+			name:     "PatchPreferences/no claims",
+			db:       &stubStorage{},
+			noClaims: true,
+			method:   http.MethodPatch,
+			path:     "/preferences",
+			register: func(r gin.IRouter, db *stubStorage) func() {
+				r.PATCH("/preferences", NewUserHandler(db).PatchPreferences)
+				return nil
+			},
+			wantCode: http.StatusInternalServerError,
+		},
+		{
+			name:        "PatchPreferences/invalid JSON",
+			db:          &stubStorage{prefs: &storage.UserPreferences{}},
+			method:      http.MethodPatch,
+			path:        "/preferences",
+			body:        "{bad json",
+			contentType: "application/json",
+			register: func(r gin.IRouter, db *stubStorage) func() {
+				r.PATCH("/preferences", NewUserHandler(db).PatchPreferences)
+				return nil
+			},
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name:        "PatchPreferences/get db error",
+			db:          &stubStorage{prefsErr: errors.New("db error")},
+			method:      http.MethodPatch,
+			path:        "/preferences",
+			body:        `{"toggl_token":"tok"}`,
+			contentType: "application/json",
+			register: func(r gin.IRouter, db *stubStorage) func() {
+				r.PATCH("/preferences", NewUserHandler(db).PatchPreferences)
+				return nil
+			},
+			wantCode: http.StatusInternalServerError,
+		},
+		{
+			name:        "PatchPreferences/upsert db error",
+			db:          &stubStorage{prefs: &storage.UserPreferences{TogglToken: "tok"}, upsertErr: errors.New("db error")},
+			method:      http.MethodPatch,
+			path:        "/preferences",
+			body:        `{"toggl_token":"new"}`,
+			contentType: "application/json",
+			register: func(r gin.IRouter, db *stubStorage) func() {
+				r.PATCH("/preferences", NewUserHandler(db).PatchPreferences)
+				return nil
+			},
+			wantCode: http.StatusInternalServerError,
+		},
+		{
+			name:     "PostSync/no claims",
+			db:       &stubStorage{},
+			noClaims: true,
+			method:   http.MethodPost,
+			path:     "/sync",
+			register: func(r gin.IRouter, db *stubStorage) func() {
+				h := NewSyncHandler(context.Background(), db, "", "")
+				r.POST("/sync", h.PostSync)
+				return h.Wait
+			},
+			wantCode: http.StatusInternalServerError,
+		},
+		{
+			name:   "PostSync/create db error",
+			db:     &stubStorage{createErr: errors.New("db error")},
+			method: http.MethodPost,
+			path:   "/sync",
+			register: func(r gin.IRouter, db *stubStorage) func() {
+				h := NewSyncHandler(context.Background(), db, "", "")
+				r.POST("/sync", h.PostSync)
+				return h.Wait
+			},
+			wantCode: http.StatusInternalServerError,
+		},
+		{
+			name:     "GetSync/no claims",
+			db:       &stubStorage{},
+			noClaims: true,
+			method:   http.MethodGet,
+			path:     "/sync/job1",
+			register: func(r gin.IRouter, db *stubStorage) func() {
+				r.GET("/sync/:jobID", NewSyncHandler(context.Background(), db, "", "").GetSync)
+				return nil
+			},
+			wantCode: http.StatusInternalServerError,
+		},
+		{
+			name:   "GetSync/db error",
+			db:     &stubStorage{jobErr: errors.New("db error")},
+			method: http.MethodGet,
+			path:   "/sync/job1",
+			register: func(r gin.IRouter, db *stubStorage) func() {
+				r.GET("/sync/:jobID", NewSyncHandler(context.Background(), db, "", "").GetSync)
+				return nil
+			},
+			wantCode: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var wait func()
+			var r *gin.Engine
+			if tc.noClaims {
+				r = newRouterNoClaims(func(ir gin.IRouter) { wait = tc.register(ir, tc.db) })
+			} else {
+				r = newRouter(injectClaims("sub123", "42"), func(ir gin.IRouter) { wait = tc.register(ir, tc.db) })
+			}
+
+			var reqBody io.Reader
+			if tc.body != "" {
+				reqBody = strings.NewReader(tc.body)
+			}
+			w := httptest.NewRecorder()
+			req, _ := http.NewRequest(tc.method, tc.path, reqBody)
+			if tc.contentType != "" {
+				req.Header.Set("Content-Type", tc.contentType)
+			}
+			r.ServeHTTP(w, req)
+			if wait != nil {
+				wait()
+			}
+
+			if w.Code != tc.wantCode {
+				t.Errorf("status = %d, want %d", w.Code, tc.wantCode)
+			}
+		})
 	}
 }
